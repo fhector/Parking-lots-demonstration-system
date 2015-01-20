@@ -1,0 +1,74 @@
+;;; Copyright Up-tech 2003. All rights reserved.
+;;; by threewter	
+;;; threewater@up-tech.com
+;;; 2004.5.1
+
+;
+; This scatterloading descriptor file defines: one load region (LOAD) 
+; and 6 execution regions (ROM_EXEC, RAM_EXEC, RAM, HEAP, STACKS, EXCEPTION_EXEC).
+;
+; The program include two part. 
+
+;	The first one is loader which is placed at ROM_EXEC.
+;	the loader include __main.o, Region$$Table and ZISection$$Table.(reference 
+;	What code/data must be placed in a root region of a scatter file? in www.arm.com)
+;	Program execution starts at AREA Init in startup.s, which is placed '+First' in 
+;	the image. 
+
+;	The Other program (code & data) is placed in RAM_EXEC which locat in system ram base at 0x40200000,
+;	of length 2Mbytes. 
+
+; RAM might be fast on-chip (internal) RAM, and is typically
+; used for the stack and code that must be executed quickly.
+
+; The ZI data will get created (initialized) in RAM, above the RW data.
+;
+; The region HEAP is used to locate the bottom of the heap immediately above 
+; the ZI data ("+0"). The heap will grow up from this address.
+;
+; The region STACKS is used to locate the top of the memory used to store
+; the stacks for each mode. The stacks will grow down from this address.
+;
+; The region EXCEPTION_EXEC is used to place the position of the exception table.
+; It must use OVERLAY key word for place it outside of RAM_EXEC without any error.
+; The exception table is copy into 0x40000000 by bootloader.
+;
+; Regions marked UNINIT will be left uninitialized, i.e. they will not be 
+; zero-initialized by the C library when it starts-up.
+
+
+LOAD 0x40600000		;load region
+{
+	ROM_EXEC +0
+	{
+		startup.o (init, +FIRST)
+		__main.o (+RO)		  ; copy code
+		* (Region$$Table)     ; RO/RW addresses to copy
+		* (ZISection$$Table)  ; ZI addresses to zero
+	}
+
+	RAM_EXEC 0x40200000
+	{
+		* (+RO)
+    }
+
+    STACKS 0x40400000 UNINIT	;2MByte offset SDRAM
+    {
+        stack.o (+ZI)
+    }
+
+    RAM +0
+    {
+        * (+RW,+ZI)
+    }
+
+    HEAP +0 UNINIT
+    {
+        heap.o (+ZI)
+    }
+
+	EXCEPTION_EXEC 0x40000008	OVERLAY ;exception region
+ 	{
+    	exception.o	(+RO)
+    }
+}
